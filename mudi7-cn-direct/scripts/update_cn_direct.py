@@ -6,6 +6,7 @@ SOURCE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/ge
 ROOT = Path(__file__).resolve().parents[1]
 FULL = ROOT / "cn-direct-full.txt"
 SAFE = ROOT / "cn-direct.txt"
+GLINET = ROOT / "cn-direct-glinet.txt"
 
 
 def fetch_source() -> list[str]:
@@ -29,15 +30,27 @@ def main() -> None:
     if len(domains) < 100_000:
         raise SystemExit(f"Unexpectedly small upstream set ({len(domains)}); refusing to overwrite outputs")
 
+    # Exact upstream conversion: strip MetaCubeX '+.' prefix only.
     FULL.write_text("\n".join(domains) + "\n", encoding="utf-8")
 
-    # Recommended Mudi list: exclude the bare single-label `cn` rule.
-    # It corresponds to upstream `+.cn` and can be over-broad for services
-    # whose international traffic uses a .cn hostname.
+    # Previous safer variant: remove only the bare single-label `cn` rule.
     safe = [domain for domain in domains if domain != "cn"]
     SAFE.write_text("\n".join(safe) + "\n", encoding="utf-8")
 
-    print(f"full={len(domains)} safe={len(safe)}")
+    # GL.iNet firmware's Subscription URL detector rejects two classes from
+    # the current MetaCubeX CN set: single-label entries and entries whose
+    # first character is numeric. On Mudi 7 this exactly matches the UI result
+    # observed for the 111,304-line upstream set: 101,739 accepted / 9,565
+    # rejected. Keep the maximum subset the router can actually import.
+    glinet = [domain for domain in domains if "." in domain and not domain[0].isdigit()]
+    if len(glinet) < 90_000:
+        raise SystemExit(f"Unexpectedly small GL.iNet-compatible set ({len(glinet)}); refusing to overwrite outputs")
+    GLINET.write_text("\n".join(glinet) + "\n", encoding="utf-8")
+
+    print(
+        f"full={len(domains)} safe={len(safe)} "
+        f"glinet={len(glinet)} rejected_by_glinet={len(domains) - len(glinet)}"
+    )
 
 
 if __name__ == "__main__":
