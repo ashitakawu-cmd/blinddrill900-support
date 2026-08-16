@@ -101783,6 +101783,9 @@ officepreviewredir.microsoft.com
 appsforoffice.microsoft.com
 onestore.ms
 qpic.cn
+qlogo.cn
+gtimg.cn
+snssdk.com
 xiamenair.com.cn
 feishu.cn
 1.1.8.0/24
