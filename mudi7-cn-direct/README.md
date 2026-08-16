@@ -1,19 +1,32 @@
 # Mudi 7 CN DIRECT ruleset
 
-This directory publishes a GL.iNet VPN Policy compatible China-domain exclusion list for Mudi 7.
+This directory publishes GL.iNet VPN Policy compatible China DIRECT exclusion lists for Mudi 7.
 
 ## Recommended subscription
 
-Use `cn-direct.txt` as the subscription source and configure the matched targets as **Non-VPN / DIRECT**. Traffic not matched by this list can continue through the AWG profile.
+Use `cn-direct-glinet-combined.txt` as the subscription source and configure matched targets as **Non-VPN / DIRECT**. Traffic not matched by this list can continue through the AWG profile.
 
-`cn-direct.txt` is generated from MetaCubeX `geo/geosite/cn.list`, with the leading `+.` syntax removed so the output is one plain domain per line. The bare single-label `cn` entry is intentionally omitted in the recommended file because it can be too broad for international services that use a `.cn` hostname.
+The recommended file combines:
 
-`cn-direct-full.txt` preserves the full converted upstream set, including the bare `cn` entry, for comparison/testing.
+- the maximum subset of MetaCubeX `geo/geosite/cn.list` accepted by the Mudi 7 Subscription URL validator; and
+- MetaCubeX China IPv4 CIDRs from `geo/geoip/cn.list` as a fallback for Chinese services whose domain names the firmware refuses to import.
+
+This provides two DIRECT matching paths: domain first, then destination IPv4 range.
+
+## Other files
+
+- `cn-direct-full.txt`: exact converted upstream CN domain set with only the leading `+.` syntax removed.
+- `cn-direct.txt`: full converted domain set with only the bare single-label `cn` entry omitted.
+- `cn-direct-glinet.txt`: domain-only set filtered to the formats accepted by the tested Mudi 7 validator.
+- `cn-direct-glinet-combined.txt`: **recommended for Mudi 7**, combining the compatible domain set with CN IPv4 CIDRs.
 
 ## Update behavior
 
-GitHub Actions refreshes both files every day and can also be run manually. The updater refuses to overwrite the published files if the upstream list is empty, unexpectedly small, contains duplicates, or changes away from the expected `+.` format.
+GitHub Actions refreshes the published files every day and can also be run manually. The updater refuses to overwrite outputs if the upstream domain/IP sources are empty, unexpectedly small, duplicated where not expected, or change away from their expected formats.
 
-## Source
+## Sources
 
-MetaCubeX/meta-rules-dat: `geo/geosite/cn.list`.
+MetaCubeX/meta-rules-dat:
+
+- `geo/geosite/cn.list`
+- `geo/geoip/cn.list`
