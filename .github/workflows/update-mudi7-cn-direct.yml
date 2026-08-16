@@ -27,6 +27,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add mudi7-cn-direct/cn-direct.txt mudi7-cn-direct/cn-direct-full.txt
+          git add mudi7-cn-direct/cn-direct.txt mudi7-cn-direct/cn-direct-full.txt mudi7-cn-direct/cn-direct-glinet.txt
           git diff --cached --quiet || git commit -m 'Update Mudi7 CN direct list'
           git push
