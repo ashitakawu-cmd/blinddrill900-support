@@ -19,7 +19,7 @@ PLUS = ROOT / "cn-direct-glinet-combined-plus.txt"
 # - Bypass AWG for high-volume Apple and Microsoft system/M365 traffic.
 # - Keep Microsoft Copilot eligible for AWG by deliberately NOT adding
 #   the broad parent microsoft.com or cloud.microsoft suffixes.
-# - Make common work apps explicit instead of relying only on CN GeoIP.
+# - Make common China/work apps explicit instead of relying only on CN GeoIP.
 EXTRA_DIRECT_DOMAINS = [
     # Apple: App Store, updates, Apple Account, iCloud, push/CDN.
     "apple.com",
@@ -81,12 +81,29 @@ EXTRA_DIRECT_DOMAINS = [
     "appsforoffice.microsoft.com",
     "onestore.ms",
 
-    # WeCom / WeChat Work.
+    # WeChat / QQ / WeCom. Some shared media suffixes are missing from the
+    # upstream CN geosite output, so keep them explicit in Plus.
     "qq.com",
     "weixin.com",
     "qpic.cn",
+    "qlogo.cn",
     "gtimg.com",
+    "gtimg.cn",
+    "idqqimg.com",
     "wxworklive.com",
+
+    # Douyin / domestic ByteDance core traffic. Most are already present in
+    # the CN baseline; snssdk.com is kept explicit because it is a current
+    # ByteDance/Douyin base domain but is absent from the tested CN output.
+    "douyin.com",
+    "douyincdn.com",
+    "amemv.com",
+    "pstatp.com",
+    "snssdk.com",
+    "byteimg.com",
+    "bytecdn.com",
+    "bytedance.com",
+    "bytedance.net",
 
     # XiamenAir / MF E-home.
     "xiamenair.com",
@@ -221,9 +238,9 @@ def main() -> None:
     combined = glinet + cn_ipv4
     COMBINED.write_text("\n".join(combined) + "\n", encoding="utf-8")
 
-    # Opt-in Plus list: add explicit Apple, Microsoft system/M365 and work-app
-    # domain suffixes without broad parent rules that would pull AI services
-    # such as Copilot into DIRECT.
+    # Opt-in Plus list: add explicit Apple, Microsoft system/M365 and common
+    # China/work-app domain suffixes without broad parent rules that would
+    # pull AI services such as Copilot into DIRECT.
     extra = validate_plus_domains()
     glinet_set = set(glinet)
     plus_extra = [domain for domain in extra if domain not in glinet_set]
