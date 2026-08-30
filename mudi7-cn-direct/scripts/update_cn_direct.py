@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 from ipaddress import ip_network
+import errno
 import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import tempfile
 from contextlib import contextmanager
 from urllib.request import Request, urlopen
 
-DOMAIN_SOURCE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.list"
-GEOIP_SOURCE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.list"
+UPSTREAM_COMMIT_API = "https://api.github.com/repos/MetaCubeX/meta-rules-dat/commits/meta"
+UPSTREAM_RAW_BASE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat"
+DOMAIN_SOURCE_PATH = "geo/geosite/cn.list"
+GEOIP_SOURCE_PATH = "geo/geoip/cn.list"
+COMMIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 ROOT = Path(__file__).resolve().parents[1]
 FULL = ROOT / "cn-direct-full.txt"
 SAFE = ROOT / "cn-direct.txt"
@@ -232,8 +237,33 @@ def fetch_lines(url: str) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
 
 
-def fetch_domains() -> list[str]:
-    rows = fetch_lines(DOMAIN_SOURCE)
+def resolve_upstream_commit() -> str:
+    req = Request(
+        UPSTREAM_COMMIT_API,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "mudi7-cn-direct-updater/1.1",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        payload = json.loads(urlopen(req, timeout=60).read().decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Cannot resolve upstream commit: {exc}") from exc
+    commit = payload.get("sha") if isinstance(payload, dict) else None
+    if not isinstance(commit, str) or COMMIT_SHA_PATTERN.fullmatch(commit) is None:
+        raise SystemExit("Upstream API returned an invalid commit SHA; refusing to download sources")
+    return commit
+
+
+def upstream_raw_url(commit: str, source_path: str) -> str:
+    if COMMIT_SHA_PATTERN.fullmatch(commit) is None:
+        raise RuntimeError("Cannot build an upstream URL from an invalid commit SHA")
+    return f"{UPSTREAM_RAW_BASE}/{commit}/{source_path}"
+
+
+def fetch_domains(upstream_commit: str) -> list[str]:
+    rows = fetch_lines(upstream_raw_url(upstream_commit, DOMAIN_SOURCE_PATH))
     if not rows:
         raise SystemExit("Upstream domain list is empty; refusing to overwrite outputs")
     if not all(line.startswith("+.") for line in rows):
@@ -247,8 +277,8 @@ def fetch_domains() -> list[str]:
     return domains
 
 
-def fetch_cn_ipv4() -> list[str]:
-    rows = fetch_lines(GEOIP_SOURCE)
+def fetch_cn_ipv4(upstream_commit: str) -> list[str]:
+    rows = fetch_lines(upstream_raw_url(upstream_commit, GEOIP_SOURCE_PATH))
     if not rows:
         raise SystemExit("Upstream CN IP list is empty; refusing to overwrite outputs")
 
@@ -358,14 +388,22 @@ def _validate_destinations(destinations: list[Path]) -> None:
 
 
 def _read_existing(path: Path) -> tuple[bytes, int] | None:
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise RuntimeError("This platform cannot safely reject output symbolic links")
     try:
-        with path.open("rb") as handle:
-            info = os.fstat(handle.fileno())
-            if not stat.S_ISREG(info.st_mode):
-                raise RuntimeError(f"Output is not a regular file: {path.name}")
-            return handle.read(), stat.S_IMODE(info.st_mode)
+        descriptor = os.open(path, os.O_RDONLY | nofollow)
     except FileNotFoundError:
         return None
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise RuntimeError(f"Output is a symbolic link: {path.name}") from exc
+        raise
+    with os.fdopen(descriptor, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise RuntimeError(f"Output is not a regular file: {path.name}")
+        return handle.read(), stat.S_IMODE(info.st_mode)
 
 
 def _read_manifest(destinations: list[Path]) -> dict:
@@ -577,7 +615,8 @@ def output_transaction_lock():
 
 
 def _main_locked() -> None:
-    domains = fetch_domains()
+    upstream_commit = resolve_upstream_commit()
+    domains = fetch_domains(upstream_commit)
 
     # Validate the broadest signed-runtime class before touching any output.
     # If MetaCubeX changes its bare-label set, every existing file stays byte
@@ -597,7 +636,7 @@ def _main_locked() -> None:
         raise SystemExit(f"Unexpectedly small GL.iNet-compatible set ({len(glinet)}); refusing to overwrite outputs")
 
     # Stable baseline: GL.iNet-compatible CN domains plus all CN IPv4 CIDRs.
-    cn_ipv4 = fetch_cn_ipv4()
+    cn_ipv4 = fetch_cn_ipv4(upstream_commit)
     combined = glinet + cn_ipv4
 
     # Opt-in Plus list: add explicit Apple, Microsoft system/M365 and common
@@ -630,6 +669,7 @@ def _main_locked() -> None:
         SIGNED_RUNTIME_PLUS: signed_runtime_plus,
     })
 
+    print(f"upstream_commit={upstream_commit}")
     print(
         f"full_domains={len(domains)} safe_domains={len(safe)} "
         f"glinet_domains={len(glinet)} rejected_domains={len(domains) - len(glinet)} "

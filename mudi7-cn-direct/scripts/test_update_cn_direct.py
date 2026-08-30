@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 
 SCRIPT = Path(__file__).with_name("update_cn_direct.py")
+TEST_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 def load_module():
@@ -56,19 +58,42 @@ class UpdateCnDirectTests(unittest.TestCase):
             module.MIN_GLINET_DOMAINS = 0
             module.SIGNED_RUNTIME_SINGLE_LABELS = frozenset({"cn", "alibaba"})
             module.SIGNED_RUNTIME_REJECTED_SINGLE_LABELS = frozenset({"full", "ms"})
-            module.fetch_domains = lambda: [
-                "alpha.com",
-                "163.com",
-                "cn",
-                "alibaba",
-                "full",
-                "ms",
-                "beta.cn",
-            ]
-            module.fetch_cn_ipv4 = lambda: ["1.2.3.0/24"]
+            resolution_calls = []
+
+            def resolve_upstream_commit():
+                resolution_calls.append(TEST_COMMIT)
+                return TEST_COMMIT
+
+            module.resolve_upstream_commit = resolve_upstream_commit
+            observed_commits = []
+
+            def fetch_domains(commit):
+                observed_commits.append(("domains", commit))
+                return [
+                    "alpha.com",
+                    "163.com",
+                    "cn",
+                    "alibaba",
+                    "full",
+                    "ms",
+                    "beta.cn",
+                ]
+
+            def fetch_cn_ipv4(commit):
+                observed_commits.append(("ipv4", commit))
+                return ["1.2.3.0/24"]
+
+            module.fetch_domains = fetch_domains
+            module.fetch_cn_ipv4 = fetch_cn_ipv4
             module.EXTRA_DIRECT_DOMAINS = ["apple.com"]
 
             module.main()
+
+            self.assertEqual(resolution_calls, [TEST_COMMIT])
+            self.assertEqual(
+                observed_commits,
+                [("domains", TEST_COMMIT), ("ipv4", TEST_COMMIT)],
+            )
 
             self.assertEqual(
                 module.GLINET.read_text().splitlines(),
@@ -113,19 +138,50 @@ class UpdateCnDirectTests(unittest.TestCase):
             module.MIN_GLINET_DOMAINS = 0
             module.SIGNED_RUNTIME_SINGLE_LABELS = frozenset({"cn"})
             module.SIGNED_RUNTIME_REJECTED_SINGLE_LABELS = frozenset({"full", "ms"})
-            module.fetch_domains = lambda: [
+            module.resolve_upstream_commit = lambda: TEST_COMMIT
+            module.fetch_domains = lambda commit: [
                 "alpha.com",
                 "cn",
                 "full",
                 "ms",
                 "new-tld",
             ]
-            module.fetch_cn_ipv4 = lambda: self.fail("GeoIP fetch ran after a rejected domain set")
+            module.fetch_cn_ipv4 = lambda commit: self.fail("GeoIP fetch ran after a rejected domain set")
 
             with self.assertRaisesRegex(SystemExit, "single-label set changed"):
                 module.main()
 
             self.assertTrue(all(path.read_text() == "sentinel\n" for path in outputs))
+
+    def test_upstream_commit_resolution_requires_exact_sha(self):
+        module = load_module()
+
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def read(self):
+                return json.dumps(self.payload).encode("utf-8")
+
+        module.urlopen = lambda request, timeout: Response({"sha": TEST_COMMIT})
+        self.assertEqual(module.resolve_upstream_commit(), TEST_COMMIT)
+
+        module.urlopen = lambda request, timeout: Response({"sha": "meta"})
+        with self.assertRaisesRegex(SystemExit, "invalid commit SHA"):
+            module.resolve_upstream_commit()
+
+    def test_raw_urls_use_the_same_immutable_commit(self):
+        module = load_module()
+        self.assertEqual(
+            module.upstream_raw_url(TEST_COMMIT, module.DOMAIN_SOURCE_PATH),
+            f"{module.UPSTREAM_RAW_BASE}/{TEST_COMMIT}/geo/geosite/cn.list",
+        )
+        self.assertEqual(
+            module.upstream_raw_url(TEST_COMMIT, module.GEOIP_SOURCE_PATH),
+            f"{module.UPSTREAM_RAW_BASE}/{TEST_COMMIT}/geo/geoip/cn.list",
+        )
+        with self.assertRaisesRegex(RuntimeError, "invalid commit SHA"):
+            module.upstream_raw_url("meta", module.DOMAIN_SOURCE_PATH)
 
     def test_url_compatible_plus_still_rejects_numeric_extra(self):
         module = load_module()
@@ -186,6 +242,24 @@ class UpdateCnDirectTests(unittest.TestCase):
                 module.write_outputs(output_rows(paths))
 
             self.assertFalse(paths[0].exists())
+            self.assertTrue(all(path.read_bytes() == b"old\n" for path in paths[1:]))
+            self.assertFalse(module.TRANSACTION_DIR.exists())
+
+    def test_output_symlink_is_rejected_without_replacement(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as raw_tmp:
+            root = Path(raw_tmp)
+            paths = configure_outputs(module, root, b"old\n")
+            outside = root / "outside.txt"
+            outside.write_bytes(b"outside\n")
+            paths[0].unlink()
+            paths[0].symlink_to(outside)
+
+            with self.assertRaisesRegex(RuntimeError, "symbolic link"):
+                module.write_outputs(output_rows(paths))
+
+            self.assertTrue(paths[0].is_symlink())
+            self.assertEqual(outside.read_bytes(), b"outside\n")
             self.assertTrue(all(path.read_bytes() == b"old\n" for path in paths[1:]))
             self.assertFalse(module.TRANSACTION_DIR.exists())
 

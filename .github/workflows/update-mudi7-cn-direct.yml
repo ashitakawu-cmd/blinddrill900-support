@@ -12,10 +12,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  update:
+  validate:
+    if: github.event_name != 'schedule'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +29,36 @@ jobs:
         run: python mudi7-cn-direct/scripts/test_update_cn_direct.py
       - name: Build GL.iNet CN and Plus lists
         run: python mudi7-cn-direct/scripts/update_cn_direct.py
+
+  publish:
+    if: github.event_name == 'schedule'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test generator
+        run: python mudi7-cn-direct/scripts/test_update_cn_direct.py
+      - name: Build GL.iNet CN and Plus lists
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          generator_output="$(python mudi7-cn-direct/scripts/update_cn_direct.py)"
+          printf '%s\n' "$generator_output"
+          mapfile -t upstream_commits < <(
+            printf '%s\n' "$generator_output" |
+              sed -nE 's/^upstream_commit=([0-9a-f]{40})$/\1/p'
+          )
+          if [[ "${#upstream_commits[@]}" -ne 1 ]]; then
+            echo 'Generator did not emit exactly one valid upstream commit SHA' >&2
+            exit 1
+          fi
+          printf 'upstream_commit=%s\n' "${upstream_commits[0]}" >> "$GITHUB_OUTPUT"
       - name: Commit if changed
-        if: github.event_name == 'schedule'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -38,5 +69,5 @@ jobs:
             mudi7-cn-direct/cn-direct-glinet-combined.txt \
             mudi7-cn-direct/cn-direct-glinet-combined-plus.txt \
             mudi7-cn-direct/cn-direct-signed-runtime-plus.txt
-          git diff --cached --quiet || git commit -m 'Update Mudi7 CN direct list'
+          git diff --cached --quiet || git commit -m 'Update Mudi7 CN direct list (${{ steps.build.outputs.upstream_commit }})'
           git push

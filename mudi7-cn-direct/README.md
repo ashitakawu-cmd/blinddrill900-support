@@ -52,9 +52,11 @@ tests have passed on the target Mudi.
 
 ## Update behavior
 
-GitHub Actions refreshes and commits the published files on its daily schedule. Push and manual runs test and build only; they do not publish generated changes. The updater refuses to overwrite outputs if the upstream domain/IP sources are empty, unexpectedly small, duplicated where not expected, or change away from their expected formats. The Plus generator also rejects duplicate or deliberately forbidden broad parent rules, and any unreviewed single-label change stops every output before replacement.
+GitHub Actions refreshes and commits the published files on its daily schedule. Push and manual runs use a read-only token to test and build only; the mutually exclusive scheduled publish job is the only job with write permission. The updater resolves the MetaCubeX `meta` branch to one exact 40-character commit SHA before either download, then reads both domain and IP data from that same immutable snapshot. A successful run prints that SHA, and the scheduled commit message records it without adding a seventh generated file. The updater refuses to overwrite outputs if the upstream domain/IP sources are empty, unexpectedly small, duplicated where not expected, or change away from their expected formats. The Plus generator also rejects duplicate or deliberately forbidden broad parent rules, and any unreviewed single-label change stops every output before replacement.
 
 The six generated files are installed as one recoverable transaction. Existing files and staged replacements are synced before the transaction enters `PREPARED`; an ordinary write error restores the complete previous set. If the process or host stops during installation, the next run restores the `PREPARED` transaction before downloading new source data. A residual `COMMITTED` transaction is verified and cleaned without rolling the new set back.
+
+Existing output paths must be regular files. Symbolic links are rejected without following or replacing them, so transaction backups cannot read data outside this directory.
 
 ## Sources
 
