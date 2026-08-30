@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/update-mudi7-cn-direct.yml'
       - 'mudi7-cn-direct/scripts/update_cn_direct.py'
+      - 'mudi7-cn-direct/scripts/test_update_cn_direct.py'
   schedule:
     - cron: '23 3 * * *'
   workflow_dispatch:
@@ -21,9 +22,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - name: Test generator
+        run: python mudi7-cn-direct/scripts/test_update_cn_direct.py
       - name: Build GL.iNet CN and Plus lists
         run: python mudi7-cn-direct/scripts/update_cn_direct.py
       - name: Commit if changed
+        if: github.event_name == 'schedule'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -32,6 +36,7 @@ jobs:
             mudi7-cn-direct/cn-direct-full.txt \
             mudi7-cn-direct/cn-direct-glinet.txt \
             mudi7-cn-direct/cn-direct-glinet-combined.txt \
-            mudi7-cn-direct/cn-direct-glinet-combined-plus.txt
+            mudi7-cn-direct/cn-direct-glinet-combined-plus.txt \
+            mudi7-cn-direct/cn-direct-signed-runtime-plus.txt
           git diff --cached --quiet || git commit -m 'Update Mudi7 CN direct list'
           git push

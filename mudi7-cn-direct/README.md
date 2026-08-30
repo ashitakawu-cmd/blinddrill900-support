@@ -30,6 +30,17 @@ The Plus generator deliberately does **not** add the broad `microsoft.com` or `c
 
 The original `cn-direct-glinet-combined.txt` remains unchanged in purpose so it can be used as a rollback/A-B-test baseline.
 
+## Signed runtime candidate
+
+`cn-direct-signed-runtime-plus.txt` is for the signed, transactional router
+consumer only. It keeps all ordinary FQDNs from the same MetaCubeX source,
+including numeric-leading domains, plus 50 explicitly reviewed China-related
+single-label suffixes. The non-delegated `full` label and Montserrat `.ms`
+country-code suffix are excluded. Any later upstream single-label change makes
+the generator stop for review. This file must not replace the
+URL-validator-compatible files until the native `rtp2`/`dns_mark` rollback
+tests have passed on the target Mudi.
+
 ## Other files
 
 - `cn-direct-full.txt`: exact converted upstream CN domain set with only the leading `+.` syntax removed.
@@ -37,10 +48,13 @@ The original `cn-direct-glinet-combined.txt` remains unchanged in purpose so it 
 - `cn-direct-glinet.txt`: domain-only set filtered to the formats accepted by the tested Mudi 7 validator.
 - `cn-direct-glinet-combined.txt`: stable CN-only domain + IPv4 baseline.
 - `cn-direct-glinet-combined-plus.txt`: CN baseline + explicit Apple/Microsoft/work-app DIRECT suffixes.
+- `cn-direct-signed-runtime-plus.txt`: signed-consumer candidate with numeric-leading FQDNs and an explicit reviewed single-label allowlist.
 
 ## Update behavior
 
-GitHub Actions refreshes the published files every day and can also be run manually. The updater refuses to overwrite outputs if the upstream domain/IP sources are empty, unexpectedly small, duplicated where not expected, or change away from their expected formats. The Plus generator also rejects duplicate or deliberately forbidden broad parent rules.
+GitHub Actions refreshes and commits the published files on its daily schedule. Push and manual runs test and build only; they do not publish generated changes. The updater refuses to overwrite outputs if the upstream domain/IP sources are empty, unexpectedly small, duplicated where not expected, or change away from their expected formats. The Plus generator also rejects duplicate or deliberately forbidden broad parent rules, and any unreviewed single-label change stops every output before replacement.
+
+The six generated files are installed as one recoverable transaction. Existing files and staged replacements are synced before the transaction enters `PREPARED`; an ordinary write error restores the complete previous set. If the process or host stops during installation, the next run restores the `PREPARED` transaction before downloading new source data. A residual `COMMITTED` transaction is verified and cleaned without rolling the new set back.
 
 ## Sources
 
