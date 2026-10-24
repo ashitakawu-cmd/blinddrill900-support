@@ -48,8 +48,8 @@ citic
 baidu
 anquan
 alipay
-jspatch.com
-hfray.com
+jspcinc.com
+formtalk.net
 027yx.com
 027zb.com
 027zikao.com
@@ -6428,7 +6428,7 @@ hfray.com
 6666m.vip
 6666ppt.com
 6666sa.com
-6666xsw.com
+jsxdyh.com
 6668dns.com
 6669832.com
 666bos.com
@@ -28970,7 +28970,7 @@ dongguantoday.com
 donghaidl.com
 donghaifunds.com
 donghaileasing.com
-jsxdyh.com
+donghaotest.com
 donghetea.com
 donghongzx.com
 donghuangshanquan.com
@@ -34321,7 +34321,7 @@ form-create.com
 formeasy.cc
 formingcn.com
 formssi.com
-formtalk.net
+jsxdf.com
 fornature.com
 forrealbio.com
 forrelaxing.com
@@ -44436,7 +44436,7 @@ hfplg.com
 hfpx.cc
 hfqgmagnet.com
 hfqinhang.com
-jsxdf.com
+hfray.com
 hfrc.net
 hfrcbc.com
 hfrsggff.com
@@ -55083,9 +55083,9 @@ jsomick.com
 jsonin.com
 jsososo.com
 jspang.com
-0.zone
+jspatch.com
 jspcgjg.com
-jspcinc.com
+0.zone
 jspdg.com
 jspeople.com
 jspesz.com
@@ -55244,9 +55244,9 @@ jswyw.com
 jswzjt.com
 jsxbxcl.com
 jsxcra.com
-snail.com
+mweda.com
 027wcbyy.com
-donghaotest.com
+6666xsw.com
 jsxfedu.com
 jsxggx.com
 jsxgjt.com
@@ -66262,7 +66262,7 @@ mwclg.com
 mwcloudcdn.com
 mwcloudcdn.info
 mwcname.com
-mweda.com
+jsxcx.com
 mwemp.com
 mwjournalchina.com
 mwkj.net
@@ -82520,7 +82520,7 @@ smzjy.cc
 smzy.com
 sn180.com
 snai.edu
-jsxcx.com
+snail.com
 snail007.com
 snailgame.net
 snailovet.com
@@ -85681,6 +85681,8 @@ sztxsz.com
 szty56.com
 sztz.org
 sztzzs.com
+szu.app
+szu.moe
 szuavia.org
 szudad.com
 szunionlab.com
@@ -110885,16 +110887,13 @@ feishu.cn
 43.92.0.0/15
 43.94.0.0/18
 43.96.0.0/23
-43.96.2.130/32
 43.96.3.0/24
 43.96.4.0/22
 43.96.8.0/22
-43.96.16.130/32
 43.96.18.0/24
 43.96.20.0/22
 43.96.24.0/22
 43.96.32.0/22
-43.96.36.130/32
 43.96.40.0/24
 43.96.42.0/24
 43.96.44.0/23
@@ -110905,7 +110904,6 @@ feishu.cn
 43.96.62.0/23
 43.96.64.0/21
 43.96.72.0/22
-43.96.77.131/32
 43.96.78.0/24
 43.96.80.0/23
 43.96.85.0/24
@@ -113173,6 +113171,7 @@ feishu.cn
 103.186.228.0/23
 103.189.92.0/23
 103.189.152.0/22
+103.189.197.0/24
 103.190.20.0/23
 103.190.71.0/24
 103.190.104.0/23
